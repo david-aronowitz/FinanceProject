@@ -1,0 +1,17 @@
+# Python / Virtual Environment
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# IDE / PyCharm
+.idea/
+.vscode/
+
+# Environment Variables & Secrets
+.env
+
+# Database & S3 Temp files
+*.db
+*.sqlite3
+reports/
