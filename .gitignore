@@ -7,7 +7,7 @@ __pycache__/
 # IDE / PyCharm
 .idea/
 .vscode/
-
+git push -u origin main
 # Environment Variables & Secrets
 .env
 
