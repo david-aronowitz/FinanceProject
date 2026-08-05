@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinanceApp - Dashboard</title>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+    <header class="navbar">
+        <div class="logo">
+            <span class="logo-icon">⚡</span>
+            <h2>FinanceApp <span class="badge">PRO</span></h2>
+        </div>
+        <nav class="nav-links">
+            <a href="#crypto-section">🪙 קריפטו בלייב</a>
+            <a href="#stocks-section">📈 מסחר ומניות</a>
+        </nav>
+    </header>
+
+    <main class="dashboard-container">
+
+        <!-- ==================== חלק 1: קריפטו בזמן אמת ==================== -->
+        <section id="crypto-section" class="section-block">
+            <div class="section-title">
+                <h2>🪙 זרם קריפטו / ביטקוין בלייב</h2>
+                <span class="live-status"><span class="pulse"></span> מחובר בלייב</span>
+            </div>
+
+            <div class="grid-2">
+                <!-- התראות אנומליה -->
+                <div class="card card-glow">
+                    <div class="card-header">
+                        <h3>🚨 התראות אנומליה בזמן אמת (Anomalies)</h3>
+                    </div>
+                    <div id="anomalies-list" class="anomalies-container">
+                        <p class="empty-msg">אין אנומליות לזיהוי כרגע</p>
+                    </div>
+                </div>
+
+                <!-- 5 עסקאות אחרונות -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>⚡ 5 עסקאות ביטקוין אחרונות בעולם</h3>
+                    </div>
+                    <div class="table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>מטבע</th>
+                                    <th>מחיר</th>
+                                    <th>זמן</th>
+                                </tr>
+                            </thead>
+                            <tbody id="crypto-ticks-body">
+                                <tr><td colspan="3" class="loading">טוען נתונים...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== חלק 2: מניות וסימולטור מסחר ==================== -->
+        <section id="stocks-section" class="section-block">
+            <div class="section-title">
+                <h2>📈 סימולטור השקעות ומניות</h2>
+            </div>
+
+            <!-- KPIs -->
+            <div class="cards-grid">
+                <div class="kpi-card">
+                    <span class="kpi-label">יתרת מזומן</span>
+                    <p class="kpi-value text-green" id="cash-val">$0.00</p>
+                </div>
+                <div class="kpi-card">
+                    <span class="kpi-label">שווי תיק כולל</span>
+                    <p class="kpi-value" id="total-val">$0.00</p>
+                </div>
+            </div>
+
+            <div class="grid-2">
+                <!-- מה קנית/מכרת לאחרונה -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>🕒 מה ביצעת לאחרונה (5 פעולות אחרונות)</h3>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>פעולה</th>
+                                <th>סימול</th>
+                                <th>כמות</th>
+                                <th>מחיר מימוש</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recent-tx-body">
+                            <tr><td colspan="4" class="loading">אין פעולות להצגה</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- טבלת החזקות וטופס מסחר -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3>💼 המניות שבבעלותך</h3>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>סימול</th>
+                                <th>כמות</th>
+                                <th>מחיר קנייה ממוצע</th>
+                                <th>גרף חודשי</th>
+                            </tr>
+                        </thead>
+                        <tbody id="holdings-body">
+                            <tr><td colspan="4" class="loading">אין מניות בבעלותך</td></tr>
+                        </tbody>
+                    </table>
+
+                    <div class="trade-box">
+                        <h4>קנייה / מכירה דינמית (מחיר אמת אוטומטי)</h4>
+                        <div class="trade-inputs">
+                            <input type="text" id="trade-symbol" placeholder="סימול (למשל AAPL)">
+                            <input type="number" id="trade-amount" placeholder="כמות">
+                            <button class="btn btn-buy" onclick="executeTrade('buy')">קנייה</button>
+                            <button class="btn btn-sell" onclick="executeTrade('sell')">מכירה</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- חלון הגרף החודשי -->
+            <div class="card chart-card">
+                <div class="card-header">
+                    <h3 id="chart-title">📊 התנהגות מניה בחודש האחרון (לחץ על 'הצג גרף' בטבלה)</h3>
+                </div>
+                <div class="chart-container">
+                    <canvas id="stockChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        let stockChart = null;
+
+        // 1. טעינת קריפטו (Ticks + Anomalies)
+        async function fetchCryptoData() {
+            try {
+                const ticksRes = await fetch('/trading/ticks/latest');
+                if (ticksRes.ok) {
+                    const ticksData = await ticksRes.json();
+                    const ticksBody = document.getElementById('crypto-ticks-body');
+
+                    if (Array.isArray(ticksData) && ticksData.length > 0) {
+                        ticksBody.innerHTML = '';
+                        ticksData.forEach(t => {
+                            const symbol = t[1] ? t[1].toUpperCase() : 'BTCUSDT';
+                            const price = t[2];
+                            const rawTime = t[3];
+
+                            ticksBody.innerHTML += `
+                                <tr>
+                                    <td><span class="symbol-tag">${symbol}</span></td>
+                                    <td class="price-text">$${price ? Number(price).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2}) : '0.00'}</td>
+                                    <td class="time-text">${rawTime ? new Date(rawTime).toLocaleTimeString() : ''}</td>
+                                </tr>
+                            `;
+                        });
+                    } else {
+                        ticksBody.innerHTML = '<tr><td colspan="3" class="empty-msg">אין עסקאות קריפטו זמינות בממסד הנתונים</td></tr>';
+                    }
+                }
+
+                const anomaliesRes = await fetch('/trading/anomalies');
+                if (anomaliesRes.ok) {
+                    const anomaliesData = await anomaliesRes.json();
+                    const anomaliesDiv = document.getElementById('anomalies-list');
+                    if (Array.isArray(anomaliesData)) {
+                        anomaliesDiv.innerHTML = '';
+                        if (anomaliesData.length === 0) {
+                            anomaliesDiv.innerHTML = '<p class="empty-msg">אין אנומליות לזיהוי כרגע</p>';
+                        } else {
+                            anomaliesData.forEach(a => {
+                                const symbol = a[0] ? a[0].toUpperCase() : '';
+                                const price = a[1];
+                                const zScore = a[2];
+
+                                anomaliesDiv.innerHTML += `
+                                    <div class="anomaly-item">
+                                        <span class="anomaly-symbol"><strong>${symbol}</strong> - $${Number(price).toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
+                                        <span class="badge-red">Z: ${zScore !== undefined && zScore !== null ? Number(zScore).toFixed(2) : ''}</span>
+                                    </div>
+                                `;
+                            });
+                        }
+                    }
+                }
+            } catch(e) { console.error('Crypto fetch error:', e); }
+        }
+
+        // 2. טעינת הפורטפוליו
+        async function fetchPortfolioData() {
+            try {
+                let currentBalance = 0;
+                let totalHoldingsValue = 0;
+
+                const balanceRes = await fetch('/trading/portfolio/balance');
+                if (balanceRes.ok) {
+                    const balanceData = await balanceRes.json();
+                    if (balanceData.balance !== undefined) {
+                        currentBalance = Number(balanceData.balance);
+                        document.getElementById('cash-val').innerText = `$${currentBalance.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                    }
+                }
+
+                const holdingsRes = await fetch('/trading/portfolio/holdings');
+                if (holdingsRes.ok) {
+                    const holdingsData = await holdingsRes.json();
+                    const holdingsBody = document.getElementById('holdings-body');
+                    holdingsBody.innerHTML = '';
+
+                    const symbols = Object.keys(holdingsData);
+                    if (symbols.length === 0) {
+                        holdingsBody.innerHTML = '<tr><td colspan="4" class="empty-msg">אין מניות בבעלותך</td></tr>';
+                    } else {
+                        symbols.forEach(sym => {
+                            const item = holdingsData[sym];
+                            const amount = Number(item.amount || 0);
+                            const avgPrice = Number(item.avg_price || 0);
+
+                            totalHoldingsValue += (amount * avgPrice);
+
+                            holdingsBody.innerHTML += `
+                                <tr>
+                                    <td><strong>${sym}</strong></td>
+                                    <td>${amount.toLocaleString(undefined, {maximumFractionDigits: 4})}</td>
+                                    <td>$${avgPrice.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                    <td><button class="btn-chart" onclick="loadStockChart('${sym}')">הצג גרף</button></td>
+                                </tr>
+                            `;
+                        });
+                    }
+                }
+
+                const totalWorth = currentBalance + totalHoldingsValue;
+                document.getElementById('total-val').innerText = `$${totalWorth.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+
+                const historyRes = await fetch('/trading/portfolio/history');
+                if (historyRes.ok) {
+                    const historyData = await historyRes.json();
+                    const recentTxBody = document.getElementById('recent-tx-body');
+                    recentTxBody.innerHTML = '';
+
+                    if (Array.isArray(historyData) && historyData.length > 0) {
+                        historyData.forEach(tx => {
+                            const action = tx[1];
+                            const symbol = tx[2];
+                            const price = Number(tx[3] || 0);
+                            const amount = Number(tx[4] || 0);
+
+                            const actionClass = action === 'buy' ? 'text-green' : 'text-red';
+                            const actionText = action === 'buy' ? 'קנייה' : 'מכירה';
+
+                            recentTxBody.innerHTML += `
+                                <tr>
+                                    <td><span class="${actionClass}"><strong>${actionText}</strong></span></td>
+                                    <td>${symbol}</td>
+                                    <td>${amount.toLocaleString(undefined, {maximumFractionDigits: 4})}</td>
+                                    <td>$${price.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</td>
+                                </tr>
+                            `;
+                        });
+                    } else {
+                        recentTxBody.innerHTML = '<tr><td colspan="4" class="empty-msg">אין פעולות להצגה</td></tr>';
+                    }
+                }
+
+            } catch(e) { console.error('Portfolio fetch error:', e); }
+        }
+
+        // 3. ביצוע עסקה
+        async function executeTrade(action) {
+            const symbolInput = document.getElementById('trade-symbol');
+            const amountInput = document.getElementById('trade-amount');
+            const symbol = symbolInput.value.trim().toUpperCase();
+            const amount = parseFloat(amountInput.value);
+
+            if(!symbol || isNaN(amount) || amount <= 0) {
+                alert("יש למלא סימול וכמות תקינה!");
+                return;
+            }
+
+            try {
+                const res = await fetch('/trading/portfolio/trades', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ symbol: symbol, action: action, amount: amount })
+                });
+
+                if (!res.ok) {
+                    alert("שגיאה בביצוע הפעולה מול השרת (קוד שגיאה: " + res.status + ")");
+                    return;
+                }
+
+                const data = await res.json();
+                if (data["worked: "] || data.success) {
+                    alert("הפעולה בוצעה בהצלחה!");
+                    amountInput.value = '';
+                    fetchPortfolioData();
+                } else {
+                    alert("הפעולה נכשלה. בדוק יתרת מזומן או כמות מניות זמינה.");
+                }
+            } catch(e) {
+                alert("שגיאה בתקשורת מול השרת");
+            }
+        }
+
+        // 4. טעינת נתוני מניה והצגת הגרף
+        async function loadStockChart(symbol) {
+    try {
+        const res = await fetch('/trading/stock/analyze', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ symbol: symbol })
+        });
+
+        const data = await res.json();
+
+        // בדיקה בטוחה: האם data קיים והאם מופיעה שגיאה
+        if (!res.ok || !data || data.error) {
+            const errorMsg = data?.error || `השרת החזיר תשובה ריקה או שגיאה (קוד: ${res.status})`;
+            alert(errorMsg);
+            return;
+        }
+
+        document.getElementById('chart-title').innerText = `📊 התנהגות מניית ${data.symbol}`;
+        renderChart(data);
+    } catch(e) {
+        console.error('Chart fetch error:', e);
+        alert("שגיאה בתקשורת: " + e.message);
+    }
+}
+
+        function renderChart(data) {
+            const ctx = document.getElementById('stockChart').getContext('2d');
+            if (stockChart) stockChart.destroy();
+
+            const labels = data.dates || [];
+            const prices = data.prices || [];
+            const sma20 = data.sma_20 || [];
+            const anomalies = data.anomalies || [];
+
+            const pointBackgroundColors = anomalies.map(isAnomaly => isAnomaly ? '#ff4d4d' : '#00d2ff');
+            const pointBorderColors = anomalies.map(isAnomaly => isAnomaly ? '#ffffff' : '#00d2ff');
+            const pointRadii = anomalies.map(isAnomaly => isAnomaly ? 6 : 2);
+
+            stockChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'מחיר מניה ($)',
+                            data: prices,
+                            borderColor: '#00d2ff',
+                            backgroundColor: 'rgba(0, 210, 255, 0.08)',
+                            fill: true,
+                            tension: 0.2,
+                            pointBackgroundColor: pointBackgroundColors,
+                            pointBorderColor: pointBorderColors,
+                            pointRadius: pointRadii,
+                            order: 2
+                        },
+                        {
+                            label: 'ממוצע נע (SMA 20)',
+                            data: sma20,
+                            borderColor: '#ff9f43',
+                            borderDash: [5, 5],
+                            fill: false,
+                            tension: 0.2,
+                            pointRadius: 0,
+                            order: 3
+                        },
+                        {
+                            label: '🚨 אנומליות CUSUM',
+                            data: prices.map((p, idx) => anomalies[idx] ? p : null),
+                            borderColor: '#ff4d4d',
+                            backgroundColor: '#ff4d4d',
+                            pointRadius: 7,
+                            showLine: false,
+                            order: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            labels: { color: '#ffffff' }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) label += ': ';
+                                    if (context.parsed.y !== null && context.parsed.y !== undefined) {
+                                        label += '$' + context.parsed.y.toFixed(2);
+                                    }
+                                    if (context.datasetIndex === 0 && anomalies[context.dataIndex]) {
+                                        label += ' 🚨 (אנומלית CUSUM)';
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            ticks: { color: '#a0aec0' },
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' }
+                        },
+                        y: {
+                            ticks: { color: '#a0aec0' },
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // טעינה ראשונית וטיימרים
+        fetchCryptoData();
+        fetchPortfolioData();
+        setInterval(fetchCryptoData, 3000);
+        setInterval(fetchPortfolioData, 5000);
+    </script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 import numpy as np
-from ring_buffer import RingBuffer
+from common.ring_buffer import RingBuffer
 
 class AnomalyDetector():
     def __init__(self, threshold,size):

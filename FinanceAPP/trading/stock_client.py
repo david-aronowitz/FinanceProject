@@ -7,7 +7,7 @@ class StockTracker():
 
     def get_current_price(self):
         data = self.ticker.history(period="1d")
-        return float(data['Close'].iloc[-1])
+        return float(data['Close'].squeeze().iloc[-1])
 
     def get_historical_data(self, period="1mo"):
         return self.ticker.history(period=period)
