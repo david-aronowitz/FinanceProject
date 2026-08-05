@@ -2,12 +2,18 @@ from common.DatabaseManager import DatabaseManager
 class Portfolio():
     number_of_portfolio = 0
 
-    def __init__(self, balance= 1000000):
+    def __init__(self,id=0, balance= 1000000):
         self.balance = balance
-        Portfolio.number_of_portfolio += 1
-        self.id = Portfolio.number_of_portfolio
-        self.assets = {}
-        self.db = DatabaseManager()
+        if (id == 0):
+            Portfolio.number_of_portfolio += 1
+            self.id = Portfolio.number_of_portfolio
+            self.assets = {}
+            self.db = DatabaseManager()
+        else:
+            self.id = id
+            self.db = DatabaseManager()
+            #self.balance = will fix soon ignore
+            self.assets = self.db.get_holdings(id)
 
     def buy_asset(self, symbol, price, amount):
         if (amount * price > self.balance or amount <= 0 or price <= 0):

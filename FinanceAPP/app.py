@@ -3,9 +3,11 @@ from trading.portfolio import Portfolio
 from ingestion.indicators import analyze_stock
 from trading.stock_client import StockTracker
 from flask import Flask, jsonify, render_template, request
+from werkzeug.security import check_password_hash, generate_password_hash
 import json
 
 app = Flask(__name__)
+app.secret_key = 'my_super_secret_development_key'
 db = DatabaseManager()
 current_Portfolio = Portfolio()
 
@@ -22,27 +24,17 @@ def get_anomalies():
 def get_ticks():
     return jsonify(db.get_ticks("btcusdt"))
 
-
 @app.route('/trading/stock/analyze', methods=['POST'])
 def analyze_stock_route():
-    data = request.get_json() or {}
+    data = request.json or {}
     symbol = data.get('symbol')
+    if not symbol:
+        return jsonify({"error": "יש לספק symbol"}), 400
 
-    print(f"--> Request received for symbol: {symbol}")
     result = analyze_stock(symbol)
-    print(f"--> analyze_stock returned: {result} (Type: {type(result)})")
-
-    # מקרה 1: הפונקציה החזירה tuple מסוג (dict, status_code)
-    if isinstance(result, tuple):
-        res_data, status_code = result
-        return jsonify(res_data), status_code
-
-    # מקרה 2: הפונקציה החזירה dict בלבד
-    if isinstance(result, dict):
-        return jsonify(result), 200
-
-    # מקרה 3: הפונקציה החזירה None
-    return jsonify({"error": f"לא התקבלו נתונים עבור הסימול '{symbol}'"}), 500
+    if "error" in result:
+        return jsonify(result), 400
+    return jsonify(result)
 
 @app.route('/trading/portfolio/trades', methods=['POST'])
 def make_a_trade():
@@ -50,11 +42,16 @@ def make_a_trade():
     symbol = data.get('symbol')
     action = data.get('action')
     amount = float(data.get('amount'))
+    print("received:", repr(symbol))
+    print(request.json)
     stock = StockTracker(symbol)
     price = stock.get_current_price()
+    print("get to action")
     if action == 'buy':
+        print("buying")
         work = current_Portfolio.buy_asset(symbol, price, amount)
     else:
+        print("selling")
         work = current_Portfolio.sell_asset(symbol, price, amount)
     return jsonify({"worked: ": work})
 
@@ -83,6 +80,40 @@ def get_holdings():
 def get_history():
     transactions = db.get_transactions(limit=5)
     return jsonify(transactions)
+
+@app.route('/login', methods=['POST'])
+def login():
+    global current_Portfolio
+    data = request.json or {}
+    username = data.get('username')
+    password = data.get('password')
+
+    if not username or not password:
+        return jsonify({"success": False, "error": "יש לספק שם משתמש וסיסמה"}), 400
+
+    user = db.get_user(username)
+    if user and check_password_hash(user['password'], password):
+        current_Portfolio = Portfolio(user['id'])
+        return jsonify({"success": True})
+    else:
+        return jsonify({"success": False, "error": "שם משתמש או סיסמה שגויים"}), 401
+
+@app.route('/register', methods=['POST'])
+def register():
+    data = request.json or {}
+    username = data.get('username')
+    password = data.get('password')
+
+    if not username or not password:
+        return jsonify({"success": False, "error": "יש לספק שם משתמש וסיסמה"}), 400
+
+    existing_user = db.get_user(username)
+    if existing_user:
+        return jsonify({"success": False, "error": "שם המשתמש כבר קיים"}), 400
+
+    hashed_password = generate_password_hash(password)
+    db.add_user(username, hashed_password)
+    return jsonify({"success": True})
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)

@@ -17,6 +17,8 @@ class DatabaseManager():
             cur.execute("CREATE TABLE IF NOT EXISTS holdings(id, symbol UNIQUE, price, amount)")
             cur.execute("CREATE TABLE IF NOT EXISTS portfolio_value_history(id , value, timestamp)")
 
+            cur.execute("CREATE TABLE IF NOT EXISTS users(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, password TEXT)")
+
     def save_anomaly(self, symbol, price, z_score):
         timestamp = datetime.now().isoformat()
         with sqlite3.connect(self.db_path) as con:
@@ -47,6 +49,23 @@ class DatabaseManager():
                     ON CONFLICT(symbol) DO UPDATE SET price = excluded.price, amount = excluded.amount
                 """, (symbol, price, amount))
 
+    def add_user(self,name,password):
+        with sqlite3.connect(self.db_path) as con:
+            cur = con.cursor()
+            cur.execute("INSERT INTO users (name,password) VALUES (?,?)", (name,password))
+
+    def get_users(self):
+        with sqlite3.connect(self.db_path) as con:
+            cur = con.cursor()
+            cur.execute("SELECT id, name, password, amount FROM users ORDER BY id DESC")
+            return cur.fetchall()
+
+    def get_user(self, name):
+        with sqlite3.connect(self.db_path) as con:
+            cur = con.cursor()
+            cur.execute("SELECT id, name, password FROM users WHERE name = ?", (name,))
+            return cur.fetchone()
+
     def get_anomalies(self, limit=10):
         with sqlite3.connect(self.db_path) as con:
             cur = con.cursor()
@@ -67,14 +86,17 @@ class DatabaseManager():
         with sqlite3.connect(self.db_path) as con:
             cur = con.cursor()
             cur.execute(
-                "SELECT id, action, symbol, price, amount, timestamp FROM transactions ORDER BY id DESC LIMIT ?",
+                "SELECT action, symbol, price, amount FROM transactions ORDER BY timestamp DESC LIMIT ?",
                 (limit,))
             return cur.fetchall()
 
-    def get_holdings(self):
+    def get_holdings(self, id=0):
         with sqlite3.connect(self.db_path) as con:
             cur = con.cursor()
-            cur.execute("SELECT id, symbol, price, amount FROM holdings")
+            if (id == 0):
+                cur.execute("SELECT id, symbol, price, amount FROM holdings")
+            else:
+                cur.execute("SELECT id, symbol, price, amount FROM holdings WHERE id = ?",(id,))
             return cur.fetchall()
 
     def get_portfolio_history(self, limit=100):

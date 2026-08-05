@@ -1,0 +1,24 @@
+<div id="auth-modal" class="auth-modal">
+  <div class="auth-card">
+    <button type="button" class="close-modal" onclick="closeAuthModal()">&times;</button>
+
+    <div class="auth-tabs">
+      <button type="button" id="tab-login" class="auth-tab active" onclick="switchTab('login')">התחברות</button>
+      <button type="button" id="tab-register" class="auth-tab" onclick="switchTab('register')">הרשמה</button>
+    </div>
+
+    <!-- טופס התחברות -->
+    <form id="form-login" class="auth-form active" onsubmit="handleAuth(event, 'login')">
+      <input type="text" id="login-username" class="auth-input" placeholder="שם משתמש" required>
+      <input type="password" id="login-password" class="auth-input" placeholder="סיסמה" required>
+      <button type="submit" class="auth-submit-btn">התחבר</button>
+    </form>
+
+    <!-- טופס הרשמה -->
+    <form id="form-register" class="auth-form" onsubmit="handleAuth(event, 'register')">
+      <input type="text" id="reg-username" class="auth-input" placeholder="שם משתמש" required>
+      <input type="password" id="reg-password" class="auth-input" placeholder="סיסמה" required>
+      <button type="submit" class="auth-submit-btn">הרשם עכשיו</button>
+    </form>
+  </div>
+</div>
