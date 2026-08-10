@@ -6,14 +6,19 @@ class StockTracker():
         self.ticker = yf.Ticker(self.symbol)
 
     def get_current_price(self):
-        print("yfinance version:", yf.__version__)
-        print("symbol:", repr(self.symbol))
-        print("ticker:", self.ticker)
+        try:
+            price = self.ticker.fast_info.get('lastPrice')
+            if price is not None and not list(map(str, [price]))[0] == 'nan':
+                return float(price)
+        except Exception:
+            pass
 
         data = self.ticker.history(period="5d")
 
-        print(data)
-        return float(data["Close"].iloc[-1])
+        if data.empty or "Close" not in data or data["Close"].empty:
+            raise ValueError(f"Could not retrieve price data for stock {self.symbol}. This may be due to a communication issue with Yahoo Finance.")
+
+        return float(data["Close"].dropna().iloc[-1])
 
     def get_historical_data(self, period="1mo"):
         return self.ticker.history(period=period)

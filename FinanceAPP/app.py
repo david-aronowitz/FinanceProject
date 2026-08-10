@@ -1,15 +1,40 @@
+import os
+from functools import wraps
 from common.DatabaseManager import DatabaseManager
 from trading.portfolio import Portfolio
 from ingestion.indicators import analyze_stock
 from trading.stock_client import StockTracker
-from flask import Flask, jsonify, render_template, request
+from flask import Flask, jsonify, render_template, request, session
 from werkzeug.security import check_password_hash, generate_password_hash
-import json
+import threading
+from ingestion.websocket_client import BinanceWebSocket
+from ingestion.anomaly_detector import AnomalyDetector
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 app = Flask(__name__)
-app.secret_key = 'my_super_secret_development_key'
+app.secret_key = os.environ.get("FLASK_SECRET_KEY")
+if not app.secret_key:
+    raise RuntimeError("FLASK_SECRET_KEY לא מוגדר (ראי .env.example)")
+
 db = DatabaseManager()
-current_Portfolio = Portfolio()
+
+def login_required(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        if "user_id" not in session:
+            return jsonify({"error": "צריך להתחבר קודם"}), 401
+        return f(*args, **kwargs)
+    return wrapper
+
+
+def current_portfolio():
+    return Portfolio(session["user_id"])
+
 
 @app.route('/trading/health', methods=['GET'])
 def health_check():
@@ -36,67 +61,97 @@ def analyze_stock_route():
         return jsonify(result), 400
     return jsonify(result)
 
+@app.route('/trading/portfolio/value_history', methods=['GET'])
+@login_required
+def get_value_history():
+    rows = db.get_portfolio_history(session["user_id"], limit=365)
+    return jsonify(list(reversed(rows)))
+
+
 @app.route('/trading/portfolio/trades', methods=['POST'])
+@login_required
 def make_a_trade():
-    data = request.json
+    data = request.json or {}
     symbol = data.get('symbol')
     action = data.get('action')
-    amount = float(data.get('amount'))
-    print("received:", repr(symbol))
-    print(request.json)
+    if not symbol or action not in ('buy', 'sell'):
+        return jsonify({"error": "צריך symbol ו-action תקין (buy/sell)"}), 400
+    try:
+        amount = float(data.get('amount'))
+    except (TypeError, ValueError):
+        return jsonify({"error": "amount חייב להיות מספר"}), 400
+
     stock = StockTracker(symbol)
-    price = stock.get_current_price()
-    print("get to action")
+    try:
+        price = stock.get_current_price()
+    except Exception:
+        return jsonify({"error": f"לא הצלחנו לקבל מחיר עבור {symbol}"}), 400
+
+    portfolio = current_portfolio()
     if action == 'buy':
-        print("buying")
-        work = current_Portfolio.buy_asset(symbol, price, amount)
+        worked = portfolio.buy_asset(symbol, price, amount)
     else:
-        print("selling")
-        work = current_Portfolio.sell_asset(symbol, price, amount)
-    return jsonify({"worked: ": work})
+        worked = portfolio.sell_asset(symbol, price, amount)
+
+    if not worked:
+        return jsonify({"worked": False, "error": "הפעולה נדחתה (יתרה/כמות לא מספיקה)"}), 400
+    return jsonify({"worked": True})
 
 
 @app.route('/trading/total_worth', methods=['GET'])
+@login_required
 def get_total_worth():
+    portfolio = current_portfolio()
     stocks = {}
-    for i in current_Portfolio.assets.keys():
+    for i in portfolio.assets.keys():
         stock = StockTracker(i)
-        stocks[i] = stock.get_current_price()
-    return jsonify(current_Portfolio.total_value_of_portfolio(stocks))
+        try:
+            stocks[i] = stock.get_current_price()
+        except Exception:
+            stocks[i] = None
+    return jsonify(portfolio.total_value_of_portfolio(stocks))
 
 @app.route("/")
 def index():
     return render_template("index.html")
 
 @app.route('/trading/portfolio/balance', methods=['GET'])
+@login_required
 def get_balance():
-    return jsonify({"balance": current_Portfolio.balance})
+    return jsonify({"balance": current_portfolio().balance})
 
 @app.route('/trading/portfolio/holdings', methods=['GET'])
+@login_required
 def get_holdings():
-    return jsonify(current_Portfolio.assets)
+    return jsonify(current_portfolio().assets)
 
 @app.route('/trading/portfolio/history', methods=['GET'])
+@login_required
 def get_history():
-    transactions = db.get_transactions(limit=5)
+    transactions = db.get_transactions(session["user_id"], limit=5)
     return jsonify(transactions)
 
 @app.route('/login', methods=['POST'])
 def login():
-    global current_Portfolio
     data = request.json or {}
     username = data.get('username')
     password = data.get('password')
 
     if not username or not password:
-        return jsonify({"success": False, "error": "יש לספק שם משתמש וסיסמה"}), 400
+        return jsonify({"success": False, "error": "Username and password are required"}), 400
 
     user = db.get_user(username)
-    if user and check_password_hash(user['password'], password):
-        current_Portfolio = Portfolio(user['id'])
+    if user and check_password_hash(user[2], password):
+        session['user_id'] = user[0]
+        session['username'] = user[1]
         return jsonify({"success": True})
     else:
-        return jsonify({"success": False, "error": "שם משתמש או סיסמה שגויים"}), 401
+        return jsonify({"success": False, "error": "Invalid username or password"}), 401
+
+@app.route('/logout', methods=['POST'])
+def logout():
+    session.clear()
+    return jsonify({"success": True})
 
 @app.route('/register', methods=['POST'])
 def register():
@@ -105,15 +160,22 @@ def register():
     password = data.get('password')
 
     if not username or not password:
-        return jsonify({"success": False, "error": "יש לספק שם משתמש וסיסמה"}), 400
+        return jsonify({"success": False, "error": "Username and password are required"}), 400
 
     existing_user = db.get_user(username)
     if existing_user:
-        return jsonify({"success": False, "error": "שם המשתמש כבר קיים"}), 400
+        return jsonify({"success": False, "error": "Username already exists"}), 400
 
     hashed_password = generate_password_hash(password)
     db.add_user(username, hashed_password)
     return jsonify({"success": True})
 
+def start_binance():
+    detector = AnomalyDetector(2.0, 20)
+    client = BinanceWebSocket("btcusdt", detector)
+    client.start()
+
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    threading.Thread(target=start_binance, daemon=True).start()
+    debug = os.environ.get("FLASK_DEBUG", "false").lower() == "true"
+    app.run(debug=debug, host="0.0.0.0", port=int(os.environ.get("PORT", "5000")), use_reloader=False)

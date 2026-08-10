@@ -57,7 +57,7 @@ def calculate_rsi(series, window=14):
 
 def analyze_stock(symbol, period="6mo"):
     if not symbol:
-        return {"error": "לא צוין סימול מניה"}
+        return {"error": "didnt choose a stock"}
 
     symbol = str(symbol).strip().replace('$', '').upper()
 
@@ -65,29 +65,25 @@ def analyze_stock(symbol, period="6mo"):
         tracker = StockTracker(symbol)
         df = tracker.get_historical_data(period=period)
     except Exception as e:
-        return {"error": f"שגיאה בשליפת נתונים עבור '{symbol}': {str(e)}"}
+        return {"error": f" error, couldnt get data for '{symbol}': {str(e)}"}
 
     if df.empty or 'Close' not in df.columns:
-        return {"error": f"לא נמצאו נתונים עבור '{symbol}'"}
+        return {"error": f" didnt find data for '{symbol}'"}
 
-    # 1. תאריכים ומחירי סגירה
     dates = [d.strftime("%Y-%m-%d") for d in df.index]
     prices = _clean_series(df['Close'])
 
-    # 2. CUSUM & Anomalies
+
     anomalies, cusum_values = detect_cusum_anomalies(df)
 
-    # 3. Recent Returns (אחוז תשואה יומי)
     daily_returns = df['Close'].pct_change() * 100
     returns_series = _clean_series(daily_returns)
 
-    # 4. Moving Averages (SMA 20, SMA 50, EMA 9, EMA 21)
     sma_20 = _clean_series(df['Close'].rolling(window=20, min_periods=1).mean())
     sma_50 = _clean_series(df['Close'].rolling(window=50, min_periods=1).mean())
     ema_9 = _clean_series(df['Close'].ewm(span=9, adjust=False).mean())
     ema_21 = _clean_series(df['Close'].ewm(span=21, adjust=False).mean())
 
-    # 5. Volatility (תנודתיות יומיות מנורמלת שנתית באחוזים - חלון של 20 יום)
     volatility_20d = df['Close'].pct_change().rolling(window=20, min_periods=1).std() * np.sqrt(252) * 100
     volatility_series = _clean_series(volatility_20d)
 
@@ -96,7 +92,6 @@ def analyze_stock(symbol, period="6mo"):
     volumes = [int(v) if pd.notnull(v) else 0 for v in df['Volume']] if has_volume else []
     volume_sma_20 = _clean_series(df['Volume'].rolling(window=20, min_periods=1).mean(), round_digits=0) if has_volume else []
 
-    # 7. RSI (Relative Strength Index 14)
     rsi_14 = _clean_series(calculate_rsi(df['Close'], window=14))
 
     return {

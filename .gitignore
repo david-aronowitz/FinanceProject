@@ -3,15 +3,22 @@ venv/
 .venv/
 __pycache__/
 *.pyc
+*.pyo
 
-# IDE / PyCharm
+# IDE / PyCharm / VS Code
 .idea/
 .vscode/
-git push -u origin main
-# Environment Variables & Secrets
-.env
 
-# Database & S3 Temp files
+# Environment Variables & Secrets  -- NEVER commit real secrets
+.env
+*.env
+!.env.example
+
+# Database & temp files
 *.db
 *.sqlite3
 reports/
+
+# OS
+.DS_Store
+Thumbs.db

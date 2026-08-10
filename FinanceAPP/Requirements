@@ -1,0 +1,8 @@
+flask>=3.0
+werkzeug>=3.0
+psycopg2-binary>=2.9
+yfinance>=0.2.40
+pandas>=2.0
+numpy>=1.26
+websocket-client>=1.7
+python-dotenv>=1.0

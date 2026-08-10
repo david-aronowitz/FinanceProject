@@ -1,0 +1,34 @@
+services:
+  # 1. שירות מסד הנתונים PostgreSQL
+  db:
+    image: postgres:15
+    container_name: local_postgres_db
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}   # שינוי: מגיע מ-.env, לא ריק (ריק היה מונע מהמסד לעלות)
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:   # שינוי: כדי שהאפליקציה תמתין שהמסד באמת מוכן לפני שתתחבר
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. שירות אפליקציית הפייתון שלך
+  app:
+    build: .
+    container_name: portfolio_app
+    env_file: .env          # שינוי: כל הסודות מגיעים מ-.env במקום להיות בקובץ
+    environment:
+      DB_HOST: db           # Docker מחבר אוטומטית את ה-Host לפי שם השירות
+    ports:
+      - "5000:5000"         # שינוי: מיפוי פורט כדי שתגיעי לאפליקציה מהדפדפן
+    depends_on:
+      db:
+        condition: service_healthy   # ימתין עד שהמסד עבר healthcheck
+
+volumes:
+  postgres_data:

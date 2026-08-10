@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>FinanceApp - Dashboard</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='auth.style.css') }}">
 <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
@@ -14,6 +15,7 @@
 <nav class="nav-links">
 <a href="#crypto-section">🪙 קריפטו בלייב</a>
 <a href="#stocks-section">📈 מסחר ומניות</a>
+<button class="btn btn-buy" style="margin-right: 15px;" onclick="openAuthModal()">התחברות / הרשמה</button>
 </nav>
 </header>
 
@@ -47,6 +49,12 @@
 <div class="cards-grid">
 <div class="kpi-card"><span class="kpi-label">יתרת מזומן</span><p id="cash-val" class="kpi-value text-green">$0.00</p></div>
 <div class="kpi-card"><span class="kpi-label">שווי תיק כולל</span><p id="total-val" class="kpi-value">$0.00</p></div>
+</div>
+
+<!-- גרף שווי התיק לאורך זמן: מוצג רק כשיש לפחות 10 ימי היסטוריה -->
+<div id="value-chart-card" class="card chart-card" style="display:none;">
+<div class="card-header"><h3>💰 שווי התיק לאורך זמן</h3></div>
+<div class="chart-container"><canvas id="valueChart"></canvas></div>
 </div>
 
 <div class="grid-2">
@@ -88,9 +96,19 @@
 
 </section>
 </main>
+
 {% include 'auth_modal.html' %}
+
 <script>
 const charts = {};
+
+// helper: קריאת JSON אחת, מחזיר null אם נכשל או לא מחובר (מקצר את כל ה-fetch-ים)
+async function getJSON(url, opts){
+  try{ const r = await fetch(url, opts); return r.ok ? await r.json() : null; }
+  catch(e){ console.error(url, e); return null; }
+}
+
+function money(n){ return `$${Number(n||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`; }
 
 function createChart(id, title, labels, values, type="line"){
   const c = document.getElementById(id);
@@ -103,67 +121,51 @@ function createChart(id, title, labels, values, type="line"){
 }
 
 async function fetchCryptoData(){
-  try{
-    const ticksRes = await fetch('/trading/ticks/latest');
-    if(ticksRes.ok){
-      const ticksData = await ticksRes.json();
-      document.getElementById("crypto-ticks-body").innerHTML = ticksData.map(t=>
-        `<tr><td>${t[1]}</td><td>$${Number(t[2]).toLocaleString()}</td><td>${new Date(t[3]).toLocaleTimeString()}</td></tr>`
-      ).join("");
-    }
-    const anomalyRes = await fetch('/trading/anomalies');
-    if(anomalyRes.ok){
-      const data = await anomalyRes.json();
-      document.getElementById("anomalies-list").innerHTML = data.length===0
-        ? "<p class='empty-msg'>אין אנומליות לזיהוי כרגע</p>"
-        : data.map(a=>`<div class="anomaly-item"><strong>${a[0]}</strong>$${a[1]}<span class="badge-red">Z:${Number(a[2]).toFixed(2)}</span></div>`).join("");
-    }
-  }catch(e){ console.error(e); }
+  const ticks = await getJSON('/trading/ticks/latest');
+  if(ticks) document.getElementById("crypto-ticks-body").innerHTML = ticks.map(t=>
+    `<tr><td>${t[1]}</td><td>$${Number(t[2]).toLocaleString()}</td><td>${new Date(t[3]).toLocaleTimeString()}</td></tr>`
+  ).join("");
+
+  const anomalies = await getJSON('/trading/anomalies');
+  if(anomalies) document.getElementById("anomalies-list").innerHTML = anomalies.length===0
+    ? "<p class='empty-msg'>אין אנומליות לזיהוי כרגע</p>"
+    : anomalies.map(a=>`<div class="anomaly-item"><strong>${a[0]}</strong>$${a[1]}<span class="badge-red">Z:${Number(a[2]).toFixed(2)}</span></div>`).join("");
 }
 
 async function fetchPortfolioData(){
-  try{
-    let currentBalance = 0, totalHoldingsValue = 0;
+  let currentBalance = 0, totalHoldingsValue = 0;
 
-    const balanceRes = await fetch('/trading/portfolio/balance');
-    if(balanceRes.ok){
-      const balanceData = await balanceRes.json();
-      currentBalance = Number(balanceData.balance || 0);
-      document.getElementById("cash-val").innerText =
-        `$${currentBalance.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`;
-    }
+  const balance = await getJSON('/trading/portfolio/balance');
+  if(balance){ currentBalance = Number(balance.balance || 0); document.getElementById("cash-val").innerText = money(currentBalance); }
 
-    const holdingsRes = await fetch('/trading/portfolio/holdings');
-    if(holdingsRes.ok){
-      const holdingsData = await holdingsRes.json();
-      const holdingsBody = document.getElementById("holdings-body");
-      const symbols = Object.keys(holdingsData);
-      holdingsBody.innerHTML = symbols.length===0
-        ? '<tr><td colspan="4">אין מניות בבעלותך</td></tr>'
-        : symbols.map(sym=>{
-            const item = holdingsData[sym];
-            const amount = Number(item.amount || 0);
-            const avgPrice = Number(item.avg_price || 0);
-            totalHoldingsValue += amount * avgPrice;
-            return `<tr><td><strong>${sym}</strong></td><td>${amount}</td><td>$${avgPrice.toFixed(2)}</td><td><button class="btn-sm" onclick="loadStockChart('${sym}')">הצג גרף</button></td></tr>`;
-          }).join("");
-    }
+  const holdings = await getJSON('/trading/portfolio/holdings');
+  if(holdings){
+    const symbols = Object.keys(holdings);
+    document.getElementById("holdings-body").innerHTML = symbols.length===0
+      ? '<tr><td colspan="4">אין מניות בבעלותך</td></tr>'
+      : symbols.map(sym=>{
+          const amount = Number(holdings[sym].amount || 0), avgPrice = Number(holdings[sym].avg_price || 0);
+          totalHoldingsValue += amount * avgPrice;
+          return `<tr><td><strong>${sym}</strong></td><td>${amount}</td><td>$${avgPrice.toFixed(2)}</td><td><button class="btn-sm" onclick="loadStockChart('${sym}')">הצג גרף</button></td></tr>`;
+        }).join("");
+  }
+  document.getElementById("total-val").innerText = money(currentBalance + totalHoldingsValue);
 
-    const totalWorth = currentBalance + totalHoldingsValue;
-    document.getElementById("total-val").innerText =
-      `$${totalWorth.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+  const history = await getJSON('/trading/portfolio/history');
+  document.getElementById("recent-tx-body").innerHTML = (Array.isArray(history) && history.length>0)
+    ? history.map(tx=>`<tr><td>${tx[0]==="buy"?"קנייה":"מכירה"}</td><td>${tx[1]}</td><td>${Number(tx[3]||0)}</td><td>$${Number(tx[2]||0).toFixed(2)}</td></tr>`).join("")
+    : '<tr><td colspan="4">אין פעולות להצגה</td></tr>';
+}
 
-    const historyRes = await fetch('/trading/portfolio/history');
-    if(historyRes.ok){
-      const historyData = await historyRes.json();
-      document.getElementById("recent-tx-body").innerHTML = (Array.isArray(historyData) && historyData.length>0)
-        ? historyData.map(tx=>{
-            const action = tx[0], symbol = tx[1], price = Number(tx[2] || 0), amount = Number(tx[3] || 0);
-            return `<tr><td>${action==="buy"?"קנייה":"מכירה"}</td><td>${symbol}</td><td>${amount}</td><td>$${price.toFixed(2)}</td></tr>`;
-          }).join("")
-        : '<tr><td colspan="4">אין פעולות להצגה</td></tr>';
-    }
-  }catch(e){ console.error("Portfolio error:", e); }
+// גרף שווי התיק: נטען פעם אחת, מוצג רק אם יש לפחות 10 ימי היסטוריה
+async function fetchValueHistory(){
+  const rows = await getJSON('/trading/portfolio/value_history');
+  const card = document.getElementById("value-chart-card");
+  if(!rows || rows.length < 10){ card.style.display = "none"; return; }
+  card.style.display = "block";
+  createChart("valueChart", "שווי תיק כולל",
+    rows.map(r => new Date(r[2]).toLocaleDateString()),
+    rows.map(r => Number(r[1])));
 }
 
 async function executeTrade(action){
@@ -172,42 +174,69 @@ async function executeTrade(action){
   if(!symbol || amount<=0){ alert("נתונים לא תקינים"); return; }
 
   const res = await fetch('/trading/portfolio/trades', {
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
+    method:"POST", headers:{ "Content-Type":"application/json" },
     body:JSON.stringify({ symbol, action, amount })
   });
-
   if(res.ok){ alert("הפעולה הצליחה"); fetchPortfolioData(); }
   else{ alert("שגיאה"); }
 }
 
+// מערך קונפיג במקום 6 קריאות נפרדות — מקצר את renderChart בלי לשנות תוצאה
+const STOCK_CHARTS = [
+  ["priceChart", "מחיר מניה", d=>d.prices, "line"],
+  ["cusumChart", "CUSUM", d=>d.cusum_values, "line"],
+  ["returnsChart", "Daily Returns %", d=>d.returns, "line"],
+  ["volatilityChart", "Volatility", d=>d.volatility, "line"],
+  ["volumeChart", "Volume", d=>d.volume.values, "bar"],
+  ["rsiChart", "RSI", d=>d.rsi, "line"],
+];
+
 async function loadStockChart(symbol){
-  try{
-    const res = await fetch('/trading/stock/analyze', {
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
-      body:JSON.stringify({ symbol })
-    });
-    const data = await res.json();
-    console.log(data);
-    document.getElementById("analysis-panel").style.display="block";
-    document.getElementById("chart-title").innerText = "📊 התנהגות מניית "+symbol;
-    renderChart(data);
-  }catch(e){ console.error("Chart error:", e); }
+  const data = await getJSON('/trading/stock/analyze', {
+    method:"POST", headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify({ symbol })
+  });
+  if(!data) return;
+  document.getElementById("analysis-panel").style.display = "block";
+  document.getElementById("chart-title").innerText = "📊 התנהגות מניית " + symbol;
+  for(const [id, title, pick, type] of STOCK_CHARTS) createChart(id, title, data.dates, pick(data), type);
 }
 
-function renderChart(data){
-  const labels = data.dates;
-  createChart("priceChart", "מחיר מניה", labels, data.prices);
-  createChart("cusumChart", "CUSUM", labels, data.cusum_values);
-  createChart("returnsChart", "Daily Returns %", labels, data.returns);
-  createChart("volatilityChart", "Volatility", labels, data.volatility);
-  createChart("volumeChart", "Volume", labels, data.volume.values, "bar");
-  createChart("rsiChart", "RSI", labels, data.rsi);
+function openAuthModal(){ document.getElementById("auth-modal").classList.add("active"); }
+function closeAuthModal(){ document.getElementById("auth-modal").classList.remove("active"); }
+
+function switchTab(type){
+  const isLogin = type === 'login';
+  document.getElementById("tab-login").classList.toggle("active", isLogin);
+  document.getElementById("tab-register").classList.toggle("active", !isLogin);
+  document.getElementById("form-login").classList.toggle("active", isLogin);
+  document.getElementById("form-register").classList.toggle("active", !isLogin);
 }
+
+async function handleAuth(event, type){
+  event.preventDefault();
+  const isLogin = type === 'login';
+  const data = await getJSON(isLogin ? '/login' : '/register', {
+    method:"POST", headers:{ "Content-Type":"application/json" },
+    body:JSON.stringify({
+      username: document.getElementById(isLogin ? "login-username" : "reg-username").value,
+      password: document.getElementById(isLogin ? "login-password" : "reg-password").value
+    })
+  });
+  if(data && data.success){
+    alert(isLogin ? "התחברת בהצלחה!" : "נרשמת בהצלחה! כעת תוכל להתחבר");
+    if(!isLogin){ switchTab('login'); }
+    else{ closeAuthModal(); fetchPortfolioData(); fetchValueHistory(); }
+  }else{
+    alert((data && data.error) || "שגיאה בתהליך ההתחברות/הרשמה");
+  }
+}
+
+document.addEventListener("DOMContentLoaded", openAuthModal);
 
 fetchCryptoData();
 fetchPortfolioData();
+fetchValueHistory();
 setInterval(fetchCryptoData, 3000);
 setInterval(fetchPortfolioData, 5000);
 </script>
