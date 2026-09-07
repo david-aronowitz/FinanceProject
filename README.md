@@ -35,7 +35,6 @@ A full-stack, real-time finance dashboard built with **Flask** and **PostgreSQL*
 
 ## 📂 Project Structure
 
-```text
 .
 ├── app.py                   # Main Flask application (routes, auth, WS thread)
 ├── common/
@@ -59,3 +58,113 @@ A full-stack, real-time finance dashboard built with **Flask** and **PostgreSQL*
 ├── docker-compose.yml       # Multi-container orchestrator
 ├── requirements.txt         # Python dependencies
 └── .env.example             # Environment variable template
+
+---
+
+## ⚡ Getting Started
+
+### Prerequisites
+* **Docker & Docker Compose** *(Recommended)*, or
+* **Python 3.11+** and a running **PostgreSQL** instance.
+
+---
+
+### Installation & Run
+
+#### Option 1: Running with Docker (Recommended)
+
+1. **Clone the repository & create environment file:**
+   `cp .env.example .env`
+
+2. **Generate a secret key for Flask:**
+   `python -c "import secrets; print(secrets.token_hex(32))"`
+   *(Paste the generated key into your `.env` file under `FLASK_SECRET_KEY`)*
+
+3. **Build and launch the containers:**
+   `docker-compose up --build`
+
+4. **Access the dashboard at:** `http://localhost:5000`
+
+---
+
+#### Option 2: Running Locally (Without Docker)
+
+1. **Setup Virtual Environment:**
+   `python -m venv venv`
+   `source venv/bin/activate` *(On Windows: `venv\Scripts\activate`)*
+
+2. **Install Dependencies:**
+   `pip install -r requirements.txt`
+
+3. **Configure Database:**
+   Ensure your `.env` file points to an active PostgreSQL database instance.
+
+4. **Start Application:**
+   `python app.py`
+
+---
+
+## ⚙️ Environment Variables
+
+| Variable | Description | Example |
+| :--- | :--- | :--- |
+| `FLASK_SECRET_KEY` | Secret key for session encryption *(Required)* | `f83a...91c2` *(64 hex chars)* |
+| `FLASK_DEBUG` | Enable/Disable debug mode | `false` |
+| `PORT` | Application port | `5000` |
+| `DB_HOST` | Database host endpoint *(Required)* | `db` or `your-rds.amazonaws.com` |
+| `DB_NAME` | Database name | `postgres` |
+| `DB_USER` | Database username | `postgres` |
+| `DB_PASS` | Database password *(Required)* | `your_secure_password` |
+| `DB_PORT` | PostgreSQL port | `5432` |
+
+---
+
+## 📡 API Reference
+
+### Public Routes
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/` | Dashboard interface |
+| `GET` | `/trading/health` | Health check route |
+| `POST` | `/register` | Register a new user |
+| `POST` | `/login` | Authenticate user |
+| `POST` | `/logout` | End current session |
+| `GET` | `/trading/ticks/latest` | Get recent Bitcoin tick data |
+| `GET` | `/trading/anomalies` | Get detected price anomalies |
+| `POST` | `/trading/stock/analyze` | Run technical analysis on a symbol |
+
+### Authenticated Routes *(Requires Session)*
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `POST` | `/trading/portfolio/trades` | Execute Buy/Sell trade |
+| `GET` | `/trading/portfolio/balance` | Retrieve current cash balance |
+| `GET` | `/trading/portfolio/holdings` | Retrieve active stock holdings |
+| `GET` | `/trading/portfolio/history` | Get user transaction history |
+| `GET` | `/trading/portfolio/value_history` | Retrieve historical valuation data |
+| `GET` | `/trading/total_worth` | Get live portfolio total market value |
+
+---
+
+## ☁️ AWS Lambda Integration
+
+`lambda_aws.py` functions as an automated daily CRON job triggerable via **Amazon EventBridge**.
+
+* **Logic:** Calculates `Total Value = Cash + Sum(Holdings * Live Price)` for each user and stores a snapshot in `portfolio_value_history`.
+* **Runtime Specs:** Python 3.11, `x86_64` architecture. Uses standard `urllib` for lightweight zero-dependency external fetching.
+* **Network Setup:** If deployed inside a VPC to access a private RDS, ensure a NAT Gateway is configured; otherwise, deploy outside VPC and restrict RDS via Security Groups.
+
+---
+
+## 🛡️ Security Measures
+
+* **Zero Hardcoded Credentials:** All passwords, keys, and endpoints are pulled dynamically from runtime environment variables.
+* **Password Hashing:** Hashes stored using `pbkdf2:sha256` via Werkzeug.
+* **Database Isolation:** PostgreSQL access rules restricted exclusively to trusted application subnets.
+
+---
+
+## 🔮 Roadmap / Future Improvements
+
+- [ ] Decouple Binance WebSocket stream into a standalone background service.
+- [ ] Implement data aggregation/tick throttling to optimize database storage.
+- [ ] Add unit testing coverage using `pytest` for technical indicators and trading logic.
