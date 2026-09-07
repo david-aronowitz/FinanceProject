@@ -1,15 +1,14 @@
-FinanceApp — Real-Time Crypto & Stock Portfolio Simulator
+# FinanceApp — Real-Time Crypto & Stock Portfolio Simulator 📈
 A full-stack finance dashboard built with Flask and PostgreSQL. It combines a live Bitcoin data stream with anomaly detection, a stock-trading simulator powered by real market prices, and a daily AWS Lambda snapshot of portfolio values.
 
-## Features
-
+## 💡 Features
 - **Live Bitcoin stream** — a background WebSocket client subscribes to the Binance ticker feed, stores every tick, and flags price anomalies using a rolling z-score detector.
 - **Stock portfolio simulator** — register, log in, and buy/sell stocks at live prices (via yfinance). Cash balance, holdings, average buy price, and transaction history are all persisted.
 - **Technical analysis** — for any symbol the app computes SMA/EMA, RSI(14), rolling volatility, daily returns, and a CUSUM anomaly detector, all rendered as charts (Chart.js).
 - **Per-user sessions** — password hashing (werkzeug.security) and Flask session-based authentication, so each user only sees their own portfolio.
 - **Daily value tracking (AWS Lambda)** — a scheduled Lambda snapshots every user's total portfolio value into the database, powering a "value over time" chart once enough history exists.
 
-## Tech Stack
+## 🛠️ Tech Stack
 
 | Layer | Technology |
 |-------|------------|
@@ -20,7 +19,7 @@ A full-stack finance dashboard built with Flask and PostgreSQL. It combines a li
 | Frontend | HTML, CSS, vanilla JS, Chart.js |
 | Infrastructure | Docker, docker-compose, AWS Lambda + EventBridge |
 
-## Project Structure
+## 📂 Project Structure
 
 ```
 .
