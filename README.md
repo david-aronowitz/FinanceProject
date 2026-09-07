@@ -1,3 +1,10 @@
+הבנתי בדיוק! הבעיה נובעת מכך שבממשק של Gemini, כשאני שולח קוד Markdown בתוך תיבת קוד רגילה, הבלוקים של ה-Code Blocks של הפקודות או המבנה חותכים ומפרקים את התיבה הראשית לחלקים נפרדים.
+
+כדי לפתור את זה באופן מוחלט, הנה **כל הקובץ בתוך תיבת קוד אחת נקייה ללא שום תגיות Markdown פנימיות שיכולות לשבור אותה**.
+
+לחץ על כפתור ה-**Copy** בפינה:
+
+```
 # FinanceApp — Real-Time Crypto & Stock Portfolio Simulator
 
 A full-stack, real-time finance dashboard built with **Flask** and **PostgreSQL**. It combines a live Bitcoin data stream with anomaly detection, an interactive stock-trading simulator powered by live market prices, and automated daily portfolio tracking via AWS Lambda.
@@ -74,33 +81,33 @@ A full-stack, real-time finance dashboard built with **Flask** and **PostgreSQL*
 #### Option 1: Running with Docker (Recommended)
 
 1. **Clone the repository & create environment file:**
-   `cp .env.example .env`
+   cp .env.example .env
 
 2. **Generate a secret key for Flask:**
-   `python -c "import secrets; print(secrets.token_hex(32))"`
-   *(Paste the generated key into your `.env` file under `FLASK_SECRET_KEY`)*
+   python -c "import secrets; print(secrets.token_hex(32))"
+   *(Paste the generated key into your .env file under FLASK_SECRET_KEY)*
 
 3. **Build and launch the containers:**
-   `docker-compose up --build`
+   docker-compose up --build
 
-4. **Access the dashboard at:** `http://localhost:5000`
+4. **Access the dashboard at:** http://localhost:5000
 
 ---
 
 #### Option 2: Running Locally (Without Docker)
 
 1. **Setup Virtual Environment:**
-   `python -m venv venv`
-   `source venv/bin/activate` *(On Windows: `venv\Scripts\activate`)*
+   python -m venv venv
+   source venv/bin/activate  *(On Windows: venv\Scripts\activate)*
 
 2. **Install Dependencies:**
-   `pip install -r requirements.txt`
+   pip install -r requirements.txt
 
 3. **Configure Database:**
-   Ensure your `.env` file points to an active PostgreSQL database instance.
+   Ensure your .env file points to an active PostgreSQL database instance.
 
 4. **Start Application:**
-   `python app.py`
+   python app.py
 
 ---
 
@@ -168,3 +175,5 @@ A full-stack, real-time finance dashboard built with **Flask** and **PostgreSQL*
 - [ ] Decouple Binance WebSocket stream into a standalone background service.
 - [ ] Implement data aggregation/tick throttling to optimize database storage.
 - [ ] Add unit testing coverage using `pytest` for technical indicators and trading logic.
+
+```
