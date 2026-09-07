@@ -48,7 +48,7 @@ A full-stack finance dashboard built with Flask and PostgreSQL. It combines a li
 └── .gitignore
 ```
 
-## Getting Started
+## 🚀 Getting Started
 
 ### Prerequisites
 
@@ -92,7 +92,7 @@ python app.py
 
 Make sure the `DB_*` variables in `.env` point to a reachable PostgreSQL instance.
 
-## Environment Variables
+## 🔑 Environment Variables
 
 | Variable | Description | Example |
 |----------|-------------|---------|
@@ -105,7 +105,7 @@ Make sure the `DB_*` variables in `.env` point to a reachable PostgreSQL instanc
 | `DB_PASS` | Database password (required) | `your-password` |
 | `DB_PORT` | Database port | `5432` |
 
-## API Overview
+## 📡 API Overview
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
@@ -124,7 +124,7 @@ Make sure the `DB_*` variables in `.env` point to a reachable PostgreSQL instanc
 | GET | `/trading/portfolio/value_history` | ✔ | Portfolio value over time (for the chart) |
 | GET | `/trading/total_worth` | ✔ | Total portfolio value at live prices |
 
-## AWS Lambda — Daily Portfolio Snapshot
+## ☁️ AWS Lambda — Daily Portfolio Snapshot
 
 `lambda_aws.py` runs on a schedule and, for every user, computes `cash + (holdings × current price)` and inserts the result into the `portfolio_value_history` table. The dashboard then renders a value-over-time chart.
 
@@ -136,14 +136,14 @@ Make sure the `DB_*` variables in `.env` point to a reachable PostgreSQL instanc
 - **Schedule:** an EventBridge Scheduler rule (e.g. daily at 11:00 Asia/Jerusalem).
 - **Internet access:** the function fetches live prices from Yahoo Finance using only the Python standard library (`urllib`), so no extra dependencies are needed — but it must be able to reach the internet.
 
-## Security
+## 🔒 Security
 
 - All secrets (DB credentials, Flask key) are read from environment variables — nothing sensitive is hard-coded.
 - `.env` is git-ignored; use `.env.example` as the shared template.
 - Passwords are stored hashed, never in plain text.
 - Restrict the RDS security group to trusted IPs — never `0.0.0.0/0`.
 
-## Possible Future Improvements
+## 🔮 Possible Future Improvements
 
 - Run the Binance ingestion as its own service/process rather than a thread inside the web app.
 - Throttle tick storage (store aggregates instead of every tick) to limit database growth.
